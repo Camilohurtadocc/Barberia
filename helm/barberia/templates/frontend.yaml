@@ -1,0 +1,52 @@
+{{- if .Values.servicios.frontend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: barberia-frontend
+  labels:
+    app: barberia
+    service: frontend
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: barberia
+      service: frontend
+  template:
+    metadata:
+      labels:
+        app: barberia
+        service: frontend
+    spec:
+      containers:
+        - name: frontend
+          # El tag lo fija desplegar.ps1 y cambia en cada build: con uno fijo,
+          # containerd se queda con la copia cacheada y el pod sigue sirviendo
+          # el bundle antiguo. Ver el comentario de "barberia.componente".
+          image: "{{ .Values.servicios.frontend.image }}:{{ .Values.imageTag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: {{ .Values.servicios.frontend.containerPort }}
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.servicios.frontend.containerPort }}
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: barberia-frontend
+  labels:
+    app: barberia
+    service: frontend
+spec:
+  selector:
+    app: barberia
+    service: frontend
+  ports:
+    - port: {{ .Values.servicios.frontend.servicePort }}
+      targetPort: {{ .Values.servicios.frontend.containerPort }}
+  type: ClusterIP
+{{- end }}

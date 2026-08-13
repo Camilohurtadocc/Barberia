@@ -1,0 +1,9 @@
+
+{{- if .Values.servicios.citas.enabled }}
+{{- include "barberia.componente" (dict
+      "nombre" "servicio-citas"
+      "etiqueta" "citas"
+      "cfg" .Values.servicios.citas
+      "replicas" .Values.replicaCount
+      "tag" .Values.imageTag) }}
+{{- end }}

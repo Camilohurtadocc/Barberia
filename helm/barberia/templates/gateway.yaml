@@ -1,0 +1,9 @@
+
+{{- if .Values.servicios.gateway.enabled }}
+{{- include "barberia.componente" (dict
+      "nombre" "servicio-gateway"
+      "etiqueta" "gateway"
+      "cfg" .Values.servicios.gateway
+      "replicas" .Values.replicaCount
+      "tag" .Values.imageTag) }}
+{{- end }}
