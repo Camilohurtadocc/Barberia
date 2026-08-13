@@ -1,0 +1,29 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: servicio-auth
+  datasource:
+    # 5433 = puerto del host. Sirve para arrancar el servicio desde el IDE.
+    # Dentro de Docker, docker-compose.yml pisa esta URL con SPRING_DATASOURCE_URL
+    # apuntando a postgres:5432 (puerto interno del contenedor).
+    url: jdbc:postgresql://localhost:5433/barberia_auth
+    username: postgres
+    password: admin123
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    # Sin esto, data.sql se ejecutaria ANTES de que Hibernate cree las tablas
+    # y fallaria con "relation usuarios does not exist".
+    defer-datasource-initialization: true
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  sql:
+    init:
+      mode: always
+      encoding: UTF-8

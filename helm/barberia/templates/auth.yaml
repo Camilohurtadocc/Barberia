@@ -1,0 +1,8 @@
+{{- if .Values.servicios.auth.enabled }}
+{{- include "barberia.componente" (dict
+      "nombre" "servicio-auth"
+      "etiqueta" "auth"
+      "cfg" .Values.servicios.auth
+      "replicas" .Values.replicaCount
+      "tag" .Values.imageTag) }}
+{{- end }}

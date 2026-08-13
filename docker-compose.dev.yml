@@ -1,0 +1,63 @@
+# Overlay de DESARROLLO. Se usa junto al compose normal:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+# Que cambia respecto a produccion:
+#
+#   Frontend  -> deja de servirse con nginx desde dist/spa (que exige reconstruir
+#                la imagen en cada cambio) y pasa a correr 'quasar dev' dentro del
+#                contenedor con el codigo montado. Los cambios se ven al guardar.
+#                Puerto 9000 en lugar del 80.
+#
+#   Backends  -> se monta la carpeta build/libs en vez de hornear el jar en la
+#                imagen. Tras un './gradlew bootJar' basta con
+#                'docker compose restart servicio-X': NO hay que reconstruir la
+#                imagen. Ahi es donde se te iba el tiempo.
+
+services:
+  servicio-catalogo:
+    volumes:
+      - ./Barberia-servicios/applications/app-service/build/libs:/app/libs:ro
+    entrypoint: ["java", "-jar", "/app/libs/servicio-catalogo.jar"]
+
+  servicio-barberos:
+    volumes:
+      - ./Barberia-barberos/applications/app-service/build/libs:/app/libs:ro
+    entrypoint: ["java", "-jar", "/app/libs/servicio-barberos.jar"]
+
+  servicio-citas:
+    volumes:
+      - ./Barberia-citas/applications/app-service/build/libs:/app/libs:ro
+    entrypoint: ["java", "-jar", "/app/libs/servicio-citas.jar"]
+
+  servicio-auth:
+    volumes:
+      - ./Barberia-auth/applications/app-service/build/libs:/app/libs:ro
+    entrypoint: ["java", "-jar", "/app/libs/servicio-auth.jar"]
+
+  servicio-gateway:
+    volumes:
+      - ./Barberia-gateway/applications/app-service/build/libs:/app/libs:ro
+    entrypoint: ["java", "-jar", "/app/libs/servicio-gateway.jar"]
+
+  frontend:
+    # Se ignora el Dockerfile de nginx y se usa node directamente.
+    image: node:22-alpine
+    build: !reset null
+    working_dir: /app
+    command: sh -c "npm install && npx quasar dev --hostname 0.0.0.0 --port 9000"
+    environment:
+      # En Windows + WSL2 los eventos de cambio de archivo del host no llegan al
+      # contenedor: hay que sondear. Sin esto el hot-reload no dispara nunca.
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "500"
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./barberia-frontend:/app
+      # Volumen anonimo: node_modules del contenedor (Linux) no debe pisarse con
+      # el del host (Windows); hay binarios nativos que no son compatibles.
+      - /app/node_modules
+    ports:
+      - "9000:9000"
+    depends_on:
+      - servicio-gateway

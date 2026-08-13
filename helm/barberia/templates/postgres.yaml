@@ -1,0 +1,121 @@
+
+{{- if .Values.postgres.enabled }}
+# ---------------------------------------------------------------------------
+# Script de inicializacion: una base de datos por microservicio.
+#
+# Antes esto no existia en el chart y las 4 bases habia que crearlas a mano
+# tras cada despliegue limpio. Postgres ejecuta lo que encuentre en
+# /docker-entrypoint-initdb.d SOLO cuando el directorio de datos esta vacio,
+# o sea la primera vez que se crea el PVC. En arranques posteriores lo ignora,
+# asi que es seguro dejarlo puesto.
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  labels:
+    app: barberia
+    service: postgres
+data:
+  init-db.sql: |
+    CREATE DATABASE barberia_servicios;
+    CREATE DATABASE barberia_barberos;
+    CREATE DATABASE barberia_citas;
+    CREATE DATABASE barberia_auth;
+---
+# ---------------------------------------------------------------------------
+# Volumen de datos.
+#
+# Sin esto Postgres escribia en la capa efimera del contenedor: cualquier
+# reinicio del pod se llevaba por delante las 4 bases y habia que recrearlas.
+# Docker Desktop trae una StorageClass por defecto (hostpath), asi que no hace
+# falta declarar storageClassName.
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+  labels:
+    app: barberia
+    service: postgres
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.postgres.storage }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  labels:
+    app: barberia
+    service: postgres
+spec:
+  replicas: 1
+  strategy:
+    # Un unico PVC ReadWriteOnce no admite dos pods a la vez: con RollingUpdate
+    # el pod nuevo se queda en Pending esperando un volumen que el viejo aun
+    # tiene montado, y el despliegue se cuelga.
+    type: Recreate
+  selector:
+    matchLabels:
+      app: barberia
+      service: postgres
+  template:
+    metadata:
+      labels:
+        app: barberia
+        service: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: "{{ .Values.postgres.image }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: {{ .Values.postgres.port }}
+          env:
+            - name: POSTGRES_PASSWORD
+              value: "{{ .Values.postgres.env.POSTGRES_PASSWORD }}"
+            # La imagen de Postgres solo ejecuta los scripts de initdb si los
+            # datos van a un subdirectorio suyo. Con el PVC montado en
+            # /var/lib/postgresql/data directamente, el 'lost+found' de algunos
+            # volumenes hace que el directorio no parezca vacio.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+      volumes:
+        - name: init
+          configMap:
+            name: postgres-init
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    app: barberia
+    service: postgres
+spec:
+  selector:
+    app: barberia
+    service: postgres
+  ports:
+    - port: {{ .Values.postgres.port }}
+      targetPort: {{ .Values.postgres.port }}
+  type: ClusterIP
+{{- end }}

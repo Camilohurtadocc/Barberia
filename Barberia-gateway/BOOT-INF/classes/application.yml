@@ -1,0 +1,35 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: servicio-gateway
+  main:
+    web-application-type: reactive
+  cloud:
+    gateway:
+      routes:
+        - id: servicio-auth
+          uri: http://servicio-auth:8084
+          predicates:
+            - Path=/auth/**
+
+        - id: servicio-catalogo
+          uri: http://servicio-catalogo:8081
+          predicates:
+            - Path=/api/servicios/**
+
+        - id: servicio-barberos
+          uri: http://servicio-barberos:8082
+          predicates:
+            - Path=/api/barberos/**
+
+        - id: servicio-citas
+          uri: http://servicio-citas:8083
+          predicates:
+            - Path=/api/citas/**
+
+        - id: frontend
+          uri: http://barberia-frontend:80
+          predicates:
+            - Path=/**

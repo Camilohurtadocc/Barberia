@@ -1,0 +1,33 @@
+apply plugin: 'org.springframework.boot'
+
+ext {
+    // Spring Cloud 2025.1.x es la línea alineada con Spring Boot 4.0.x
+    // (trae Spring Cloud Gateway 5.0.2). Las versiones 4.x son para Boot 3.x.
+    springCloudVersion = '2025.1.2'
+}
+
+dependencies {
+    implementation platform("org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}")
+    implementation 'org.springframework.cloud:spring-cloud-starter-gateway-server-webflux'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+    testImplementation 'tools.jackson.core:jackson-databind'
+    testImplementation 'com.tngtech.archunit:archunit:1.4.1'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.projectreactor:reactor-test'
+}
+
+tasks.register('explodedJar', Copy) {
+    with jar
+    into layout.buildDirectory.dir("exploded")
+}
+
+jar {
+    enabled = false
+}
+
+bootJar {
+    archiveFileName = "${project.getParent().getName()}.${archiveExtension.get()}"
+}

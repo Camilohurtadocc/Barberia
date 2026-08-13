@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sed -i 's/etiqueta=\"Foto de perfil\"/label=\"Foto de perfil\"/; s/etiqueta=\"Cambiar\"/label=\"Cambiar\"/' src/pages/barbero/MiPerfilPage.vue)",
+      "Bash(sed -i 's/neon-eyebrow/bs-eyebrow/g' src/components/SelectorImagen.vue)"
+    ]
+  }
+}

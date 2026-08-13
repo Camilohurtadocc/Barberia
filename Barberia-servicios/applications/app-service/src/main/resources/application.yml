@@ -1,0 +1,42 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: servicio-catalogo
+  datasource:
+    # 5433 = puerto del host. Sirve para arrancar el servicio desde el IDE.
+    # Dentro de Docker, docker-compose.yml pisa esta URL con SPRING_DATASOURCE_URL
+    # apuntando a postgres:5432 (puerto interno del contenedor).
+    url: jdbc:postgresql://localhost:5433/barberia_servicios
+    username: postgres
+    password: admin123
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    # Sin esto, data.sql se ejecutaria ANTES de que Hibernate cree las tablas
+    # y fallaria con "relation servicios does not exist".
+    defer-datasource-initialization: true
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  sql:
+    init:
+      mode: always
+      encoding: UTF-8
+  servlet:
+    multipart:
+      # 5 MB por archivo, igual que el limite que valida AlmacenArchivos. Si aqui
+      # fuera menor, Spring cortaria la peticion antes y el usuario veria un error
+      # generico en vez del mensaje explicando el motivo.
+      max-file-size: 5MB
+      max-request-size: 6MB
+
+barberia:
+  uploads:
+    # Dentro del contenedor. docker-compose monta aqui un volumen para que las
+    # imagenes sobrevivan a reconstruir la imagen.
+    dir: ${UPLOADS_DIR:/app/uploads}

@@ -1,0 +1,13 @@
+// 'java-library' habilita la configuración 'api'. El plugin raíz solo aplica 'java',
+// que no la expone.
+apply plugin: 'java-library'
+
+dependencies {
+    // 'api' y no 'implementation': las anotaciones JPA (@Entity, @Id, @Column...)
+    // forman parte de la firma pública de las clases del modelo, así que el módulo
+    // app-service necesita verlas en su classpath de compilación. Con
+    // 'implementation' Gradle no las propaga y la compilación falla con
+    // "class file for jakarta.persistence.GenerationType not found".
+    api 'jakarta.persistence:jakarta.persistence-api:3.1.0'
+    api 'org.springframework.boot:spring-boot-starter-data-jpa'
+}

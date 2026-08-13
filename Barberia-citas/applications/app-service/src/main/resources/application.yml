@@ -1,0 +1,24 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: servicio-citas
+  datasource:
+    # 5433 = puerto del host. Sirve para arrancar el servicio desde el IDE.
+    # Dentro de Docker, docker-compose.yml pisa esta URL con SPRING_DATASOURCE_URL
+    # apuntando a postgres:5432 (puerto interno del contenedor).
+    url: jdbc:postgresql://localhost:5433/barberia_citas
+    username: postgres
+    password: admin123
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+# No hay data.sql: la tabla citas arranca vacia y se llena desde el formulario
+# de reserva de la landing.

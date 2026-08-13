@@ -1,0 +1,125 @@
+services:
+  # Base de datos PostgreSQL
+  postgres:
+    image: postgres:15
+    container_name: barberia-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin123
+    # IZQUIERDA = puerto en tu maquina (el que pones en pgAdmin), DERECHA = puerto
+    # dentro del contenedor. Postgres SIEMPRE escucha en 5432 dentro del contenedor;
+    # 5433 es solo la traduccion hacia fuera porque el 5432 lo ocupa tu Postgres local.
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Crea las 4 bases (una por microservicio). Solo se ejecuta cuando el
+      # volumen es nuevo; si ya existe, recrealo con -BorrarVolumenes.
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # servicio-catalogo (puerto 8081)
+  servicio-catalogo:
+    build: ./Barberia-servicios
+    container_name: servicio-catalogo
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # 5432, NO 5433: aqui hablamos contenedor-a-contenedor por la red de compose,
+      # donde Postgres escucha en su puerto interno. El 5433 solo existe en el host.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/barberia_servicios
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: admin123
+    volumes:
+      # Las imagenes que sube el administrador van a un volumen, NO dentro de la
+      # imagen del contenedor: lo que se escribe en el sistema de archivos de un
+      # contenedor se pierde al reconstruirlo.
+      - uploads_data:/app/uploads
+    # Los puertos 8081-8084 YA NO SE PUBLICAN. Antes estaban abiertos "para
+    # depurar", y eso volvía decorativos todos los permisos: los microservicios
+    # confían en las cabeceras X-Auth-Role / X-Auth-Barbero que inyecta el
+    # gateway, así que quien alcanzara el puerto directo podía mandar
+    # 'X-Auth-Role: ADMIN' a mano y hacer cualquier cosa. El gateway (8080) es
+    # el único que valida la firma del token y borra esas cabeceras si vienen
+    # del cliente, por eso tiene que ser la única puerta.
+    #
+    # Para depurar desde el host sin reabrir el puerto:
+    #   docker exec servicio-catalogo wget -qO- http://localhost:8081/api/servicios
+    # Y los servicios se siguen viendo entre sí por la red de compose.
+
+  # servicio-barberos (puerto 8082)
+  servicio-barberos:
+    build: ./Barberia-barberos
+    container_name: servicio-barberos
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/barberia_barberos
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: admin123
+
+  # servicio-citas (puerto 8083)
+  servicio-citas:
+    build: ./Barberia-citas
+    container_name: servicio-citas
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/barberia_citas
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: admin123
+
+  # servicio-auth (puerto 8084)
+  servicio-auth:
+    build: ./Barberia-auth
+    container_name: servicio-auth
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/barberia_auth
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: admin123
+    # Nota: JwtService.java tiene el secreto en una constante, no lee variables de
+    # entorno. Si lo cambias ahí, cambia también JWT_SECRET del gateway.
+
+  # servicio-gateway (puerto 8080) - punto único de entrada del frontend
+  servicio-gateway:
+    build: ./Barberia-gateway
+    container_name: servicio-gateway
+    depends_on:
+      - servicio-catalogo
+      - servicio-barberos
+      - servicio-citas
+      - servicio-auth
+    environment:
+      # Dentro de la red de compose se resuelve por nombre de servicio, no por localhost
+      SERVICIO_CATALOGO_URI: http://servicio-catalogo:8081
+      SERVICIO_BARBEROS_URI: http://servicio-barberos:8082
+      SERVICIO_CITAS_URI: http://servicio-citas:8083
+      SERVICIO_AUTH_URI: http://servicio-auth:8084
+      # DEBE coincidir con el secreto que usa servicio-auth para firmar
+      JWT_SECRET: barberiaSecretKey1234567890123456789012345678901234567890
+    ports:
+      - "8080:8080"
+
+  # Frontend (puerto 80) - habla únicamente con el gateway
+  frontend:
+    build: ./barberia-frontend
+    container_name: barberia-frontend
+    depends_on:
+      - servicio-gateway
+    ports:
+      - "80:80"
+
+volumes:
+  postgres_data:
+  uploads_data:

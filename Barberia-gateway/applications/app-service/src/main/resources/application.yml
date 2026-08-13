@@ -1,0 +1,251 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: servicio-gateway
+  main:
+    web-application-type: reactive
+  cloud:
+    gateway:
+      # OJO con la ruta de esta propiedad. Spring Cloud Gateway 5.x (el que trae
+      # Spring Cloud 2025.1.x, alineado con Boot 4.0.x) SOLO lee
+      # 'spring.cloud.gateway.server.webflux.routes'. El antiguo
+      # 'spring.cloud.gateway.routes' de la linea 4.x ya no existe: no da error de
+      # arranque, simplemente se ignora y el gateway queda SIN NINGUNA ruta,
+      # devolviendo 404 a todo. Si alguna vez vuelve a aparecer un 404 general,
+      # comprobar esta ruta de propiedad antes que ninguna otra cosa.
+      server:
+        webflux:
+          routes:
+            # ---------------------------------------------------------------
+            # Catálogo de servicios -> servicio-catalogo:8081
+            # ---------------------------------------------------------------
+            - id: servicio-catalogo
+              uri: ${SERVICIO_CATALOGO_URI:http://localhost:8081}
+              predicates:
+                # servicio-catalogo hace además de servicio de CONTENIDO: guarda las
+                # imágenes subidas, el texto editable de la portada y el portafolio.
+                - Path=/api/servicios/**,/api/configuracion,/api/portafolio/**,/api/archivos/**
+                - Method=GET,POST,PUT,DELETE,OPTIONS
+
+            # ---------------------------------------------------------------
+            # Barberos -> servicio-barberos:8082
+            # ---------------------------------------------------------------
+            - id: servicio-barberos
+              uri: ${SERVICIO_BARBEROS_URI:http://localhost:8082}
+              predicates:
+                - Path=/api/barberos/**
+                - Method=GET,POST,PUT,DELETE,OPTIONS
+
+            # ---------------------------------------------------------------
+            # Citas -> servicio-citas:8083
+            # ---------------------------------------------------------------
+            - id: servicio-citas
+              uri: ${SERVICIO_CITAS_URI:http://localhost:8083}
+              predicates:
+                - Path=/api/citas/**
+                - Method=GET,POST,PUT,DELETE,OPTIONS
+
+            # ---------------------------------------------------------------
+            # Autenticación -> servicio-auth:8084
+            # ---------------------------------------------------------------
+            - id: servicio-auth
+              uri: ${SERVICIO_AUTH_URI:http://localhost:8084}
+              predicates:
+                - Path=/auth/**
+                # PUT y DELETE hacen falta para /auth/password y /auth/usuarios/{id}.
+                - Method=GET,POST,PUT,DELETE,OPTIONS
+
+            # ---------------------------------------------------------------
+            # Frontend (nginx con la SPA) -> barberia-frontend:80
+            #
+            # Es el comodín: recoge todo lo que no haya casado con una ruta de
+            # API. Por eso lleva 'order' alto — las rutas se evalúan de menor a
+            # mayor 'order', y las de arriba se quedan sin declarar, o sea 0. Sin
+            # este orden explícito el comodín podría atrapar /api/** y /auth/**.
+            #
+            # Solo métodos de lectura: son ficheros estáticos. Un POST a una ruta
+            # desconocida debe seguir siendo 404 del gateway, no un 405 de nginx.
+            #
+            # No se traga /actuator/**: el handler mapping de actuator tiene más
+            # precedencia que el de las rutas del gateway.
+            # ---------------------------------------------------------------
+            - id: frontend
+              uri: ${FRONTEND_URI:http://localhost:9000}
+              order: 100
+              predicates:
+                - Path=/**
+                - Method=GET,HEAD,OPTIONS
+
+# -------------------------------------------------------------------------
+# Seguridad del gateway
+# -------------------------------------------------------------------------
+# El secreto DEBE ser idéntico al de servicio-auth (JwtService.SECRET),
+# porque el gateway valida la firma HS256 de los tokens que emite auth.
+gateway:
+  security:
+    secret: ${JWT_SECRET:barberiaSecretKey1234567890123456789012345678901234567890}
+    # Rutas que NO exigen token. method '*' = cualquier método.
+    #
+    # Se listan una a una a propósito. Antes había un '/auth/**' y un
+    # 'GET /api/**' abiertos en bloque, y eso dejaba dos agujeros: cualquiera
+    # podía leer TODAS las citas sin identificarse (adiós a "cada barbero ve solo
+    # su agenda") y, al añadir /auth/usuarios, la gestión de cuentas habría
+    # quedado pública. Un comodín solo puede crecer hacia lo inseguro.
+    public-endpoints:
+      # Preflight CORS
+      - method: OPTIONS
+        pattern: /**
+      # ---------------------------------------------------------------------
+      # La SPA en sí: HTML, JS, CSS e iconos.
+      #
+      # Hacen falta desde que el gateway sirve el frontend. Este filtro es un
+      # GlobalFilter, así que se ejecuta en TODA petición que case con una ruta
+      # — incluida la del comodín del frontend. Sin estas entradas, pedir '/'
+      # devolvía 401 y el navegador no llegaba ni a cargar la landing.
+      #
+      # Se enumeran uno a uno en vez de abrir un 'GET /**'. Un GET comodín aquí
+      # sería un agujero grave: isPublic() corta antes de mirar las role-rules,
+      # así que dejaría /api/citas/** legible sin token. La app usa router en
+      # modo hash (/#/admin), de modo que el servidor solo ve estas rutas: lo
+      # que produce 'quasar build' es exactamente index.html, assets/, icons/
+      # y favicon.ico.
+      # ---------------------------------------------------------------------
+      - method: GET
+        pattern: /
+      - method: GET
+        pattern: /index.html
+      - method: GET
+        pattern: /assets/**
+      - method: GET
+        pattern: /icons/**
+      - method: GET
+        pattern: /favicon.ico
+      # Puerta de entrada de la autenticación
+      - method: POST
+        pattern: /auth/login
+      - method: POST
+        pattern: /auth/logout
+      - method: GET
+        pattern: /auth/validate
+      # Alta de cliente desde la web. Es pública por necesidad: quien se registra
+      # todavía no tiene token. El rol NO se puede elegir desde fuera, lo fuerza
+      # servicio-auth a CLIENTE; si se leyera del cuerpo, este endpoint abierto
+      # sería una fábrica de administradores.
+      - method: POST
+        pattern: /auth/registro
+      # Lo que la landing enseña sin iniciar sesión: catálogo y equipo.
+      # Las citas NO están aquí: son datos de clientes.
+      - method: GET
+        pattern: /api/servicios/**
+      - method: GET
+        pattern: /api/barberos/**
+      # Contenido de la portada y sus imágenes: lo ve cualquier visitante.
+      - method: GET
+        pattern: /api/configuracion
+      - method: GET
+        pattern: /api/portafolio/**
+      - method: GET
+        pattern: /api/archivos/**
+      # El formulario de reserva de la landing es anónimo: crear una cita
+      # NO requiere token (leerlas, modificarlas o borrarlas sí).
+      - method: POST
+        pattern: /api/citas
+
+    # Rutas que además exigen un rol concreto. Quien no lo traiga recibe 403.
+    #
+    # Esto es el filtro grueso, el que se resuelve mirando solo método y ruta.
+    # Las reglas de pertenencia ("este barbero solo edita SU ficha", "solo ve SUS
+    # citas") necesitan consultar el dato, así que viven en cada microservicio.
+    # Las dos capas se complementan: aquí se corta antes de gastar una llamada.
+    role-rules:
+      # --- Catálogo: definir servicios y precios es gestión ---
+      - method: POST
+        pattern: /api/servicios
+        roles: [ADMIN]
+      - method: PUT
+        pattern: /api/servicios/**
+        roles: [ADMIN]
+      - method: DELETE
+        pattern: /api/servicios/**
+        roles: [ADMIN]
+
+      # --- Barberos: alta y baja son exclusivas del administrador ---
+      - method: POST
+        pattern: /api/barberos
+        roles: [ADMIN]
+      - method: DELETE
+        pattern: /api/barberos/**
+        roles: [ADMIN]
+      # Editar lo permiten ambos roles; que el barbero solo pueda tocar su propia
+      # ficha lo comprueba servicio-barberos comparando el id de la ruta con el
+      # que venía firmado en el token.
+      - method: PUT
+        pattern: /api/barberos/**
+        roles: [ADMIN, BARBERO]
+
+      # --- Citas: la agenda ---
+      #
+      # CLIENTE entra en estas dos reglas, pero eso NO le da acceso a las citas de
+      # los demás. Aquí solo se decide "puede hablar con este endpoint"; quién ve
+      # qué lo resuelve servicio-citas, que filtra por el X-Auth-User firmado:
+      # ADMIN todas, BARBERO las de su ficha, CLIENTE las que reservó él.
+      #
+      # Ojo al tocar esto: el filtro exige que el rol esté en TODAS las reglas que
+      # casen con la petición (allMatch). Añadir una regla aparte para CLIENTE en
+      # vez de ampliar estas le daría 403, porque no estaría en la otra.
+      - method: GET
+        pattern: /api/citas/**
+        roles: [ADMIN, BARBERO, CLIENTE]
+      # El cliente solo puede pasar el estado a CANCELADA, y solo en una cita suya
+      # que no haya pasado todavía. Ese matiz no cabe en una regla de ruta, así que
+      # lo comprueba servicio-citas.
+      - method: PUT
+        pattern: /api/citas/**
+        roles: [ADMIN, BARBERO, CLIENTE]
+      # Un barbero cancela cambiando el estado, no borrando: así no se pierde
+      # el historial de la barbería.
+      - method: DELETE
+        pattern: /api/citas/**
+        roles: [ADMIN]
+
+      # --- Contenido de la portada: editarlo es gestión ---
+      - method: PUT
+        pattern: /api/configuracion
+        roles: [ADMIN]
+      - method: POST
+        pattern: /api/portafolio
+        roles: [ADMIN]
+      - method: PUT
+        pattern: /api/portafolio/**
+        roles: [ADMIN]
+      - method: DELETE
+        pattern: /api/portafolio/**
+        roles: [ADMIN]
+      # Subir imágenes: también el barbero, que cambia su foto y su galería.
+      - method: POST
+        pattern: /api/archivos
+        roles: [ADMIN, BARBERO]
+
+      # --- Cuentas de acceso: solo el administrador ---
+      - method: '*'
+        pattern: /auth/usuarios/**
+        roles: [ADMIN]
+      - method: '*'
+        pattern: /auth/usuarios
+        roles: [ADMIN]
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    co.com.barberia.gateway: INFO
+    org.springframework.cloud.gateway: INFO

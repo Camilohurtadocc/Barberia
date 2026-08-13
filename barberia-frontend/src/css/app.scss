@@ -1,0 +1,739 @@
+// =============================================================================
+// Sistema visual de la barbería
+// =============================================================================
+//
+// Tomado del mockup de referencia. Tres ideas lo gobiernan y conviene tenerlas
+// presentes antes de tocar nada:
+//
+//   1. Serif editorial + sans geométrica + monoespaciada. Fraunces pone el tono
+//      (es la que da el aire de revista), Outfit sostiene la interfaz y DM Mono
+//      se reserva para etiquetas, cifras y horas. Mezclar los tres papeles es lo
+//      que rompe el estilo más rápido.
+//
+//   2. La página ALTERNA fondo oscuro y fondo claro. Servicios y Portafolio van
+//      sobre pergamino; el resto sobre tinta. No es un capricho: ese vaivén es lo
+//      que da ritmo al scroll. Por eso los tokens de texto/borde se redefinen en
+//      `.bs-light` en vez de existir dos juegos de clases.
+//
+//   3. Nada se redondea y nada lleva sombra difuminada. Las capas se separan con
+//      un borde de 1px. Un `border-radius` suelto desentona inmediatamente.
+//
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+// ---------------------------------------------------------------------------
+// Tokens
+// ---------------------------------------------------------------------------
+:root {
+  // Escala de oscuros. Cada peldaño es una capa de elevación: página, sección,
+  // tarjeta. Son azulados a propósito (no grises neutros); el tinte frío es lo
+  // que hace que el dorado se lea cálido por contraste.
+  --ink: #07080d; // fondo de página
+  --surface: #0f1117; // secciones alternas
+  --card: #141720; // tarjetas y paneles
+  --border: #1e2028;
+
+  // Claros, para las secciones de pergamino.
+  --parchment: #f0eae0;
+  --warm: #e6ded4;
+  --warm-hover: #ddd7cd;
+  --border-light: #cec8be;
+
+  // Crema, no blanco puro: sobre un fondo tan oscuro el #FFF vibra y cansa.
+  --text: #ede8df;
+  --muted: #6a6460;
+
+  // Único acento del sistema.
+  --gold: #c8a96e;
+  --gold-soft: #e8c98e;
+  --gold-15: rgba(200, 169, 110, 0.09);
+  --gold-40: rgba(200, 169, 110, 0.27);
+  --gold-60: rgba(200, 169, 110, 0.4);
+
+  --danger: #d9534f;
+  --success: #7fa650;
+  --warning: #d8a24a;
+
+  --fuente-display: 'Fraunces', Georgia, serif;
+  --fuente-ui: 'Outfit', system-ui, sans-serif;
+  --fuente-mono: 'DM Mono', ui-monospace, monospace;
+}
+
+// Dentro de una sección clara se reescriben los mismos tokens, así los
+// componentes (etiquetas, botones, inputs) no necesitan una variante propia:
+// heredan el color correcto por contexto.
+.bs-light {
+  --text: #07080d;
+  --muted: #6a6460;
+  --border: var(--border-light);
+  --card: var(--warm);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--fuente-ui);
+}
+
+// ---------------------------------------------------------------------------
+// Cursor
+// ---------------------------------------------------------------------------
+//
+// Se usa el puntero del sistema. Aquí solo se corrige un detalle del estilo de
+// agente de usuario: `<button>` NO trae `cursor: pointer` por defecto (los
+// navegadores le ponen la flecha), a diferencia de `<a href>`. Como en esta
+// interfaz casi todo lo pulsable es un <button> —las pestañas del panel, los
+// turnos, los filtros, las tarjetas de servicio—, sin esto la mitad de los
+// controles no darían ninguna señal de ser pulsables al pasar por encima.
+button,
+[role='button'],
+summary,
+label.bs-campo,
+.bs-btn,
+select {
+  cursor: pointer;
+}
+
+// Un control desactivado no debe invitar a pulsarlo.
+button:disabled,
+.bs-btn:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
+::selection {
+  background: var(--gold);
+  color: var(--ink);
+}
+
+::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+::-webkit-scrollbar-track {
+  background: var(--ink);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gold-40);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gold);
+}
+
+// ---------------------------------------------------------------------------
+// Tipografía
+// ---------------------------------------------------------------------------
+
+// Titular de sección. El segundo renglón va en itálica de peso ligero y color
+// dorado: ese contraste dentro del mismo titular es la firma del diseño y se
+// repite en las seis secciones.
+.bs-h1,
+.bs-h2 {
+  font-family: var(--fuente-display);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin: 0;
+}
+
+.bs-h1 {
+  font-size: clamp(56px, 7vw, 108px);
+  line-height: 0.92;
+}
+
+.bs-h2 {
+  font-size: clamp(34px, 4.5vw, 62px);
+}
+
+// El acento en itálica dentro de un titular.
+.bs-em {
+  font-style: italic;
+  font-weight: 300;
+  color: var(--gold);
+}
+
+// En pergamino el acento no se dora: se quedaría ilegible sobre un fondo claro.
+// Mantiene la itálica ligera, que es lo que de verdad marca el contraste.
+.bs-light .bs-em {
+  color: inherit;
+}
+
+.bs-mono {
+  font-family: var(--fuente-mono);
+}
+
+// Etiqueta pequeña en versalitas: se usa en cada rótulo de formulario y en los
+// pies de tarjeta.
+.bs-eyebrow {
+  font-family: var(--fuente-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.bs-parrafo {
+  font-size: 15px;
+  line-height: 1.78;
+  color: var(--muted);
+}
+
+// ---------------------------------------------------------------------------
+// Estructura
+// ---------------------------------------------------------------------------
+.bs-seccion {
+  padding: 96px clamp(24px, 5vw, 80px);
+}
+
+.bs-contenedor {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.bs-fondo-ink {
+  background: var(--ink);
+}
+.bs-fondo-surface {
+  background: var(--surface);
+}
+.bs-fondo-parchment {
+  background: var(--parchment);
+}
+
+// Rótulo numerado "01 ———— SERVICIOS" que encabeza cada sección.
+.bs-rotulo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+
+  &__n {
+    font-family: var(--fuente-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--gold);
+  }
+
+  &__linea {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  &__texto {
+    font-family: var(--fuente-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+}
+
+// Grano sutil sobre el héroe. Va como SVG embebido para no pedir un fichero más
+// solo por una textura de 128px que se repite.
+.bs-grano {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.6;
+  background-repeat: repeat;
+  background-size: 128px;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+}
+
+// ---------------------------------------------------------------------------
+// Botones
+// ---------------------------------------------------------------------------
+//
+// El ensanchado del `letter-spacing` al pasar por encima es intencionado: como
+// no hay sombras ni cambios de escala, el espaciado es el único recurso de
+// respuesta al puntero que encaja con el estilo.
+.bs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 32px;
+  border: 1px solid transparent;
+  font-family: var(--fuente-ui);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition:
+    background 0.22s,
+    color 0.22s,
+    border-color 0.22s,
+    letter-spacing 0.22s;
+
+  &--oro {
+    background: var(--gold);
+    color: var(--ink);
+
+    &:hover:not(:disabled) {
+      background: var(--gold-soft);
+      letter-spacing: 0.22em;
+    }
+  }
+
+  &--fantasma {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--border);
+    font-weight: 600;
+
+    &:hover:not(:disabled) {
+      border-color: var(--gold-60);
+    }
+  }
+
+  &--peligro {
+    background: transparent;
+    color: var(--danger);
+    border-color: rgba(217, 83, 79, 0.4);
+
+    &:hover:not(:disabled) {
+      background: var(--danger);
+      color: var(--text);
+    }
+  }
+
+  // Deshabilitado se comunica con contraste, no con opacidad: bajar la opacidad
+  // sobre este fondo deja el texto casi invisible en vez de "apagado".
+  &:disabled {
+    background: var(--border);
+    color: var(--muted);
+    border-color: var(--border);
+    letter-spacing: 0.16em;
+  }
+
+  &--bloque {
+    width: 100%;
+  }
+
+  &--pequeno {
+    padding: 8px 18px;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Formularios
+// ---------------------------------------------------------------------------
+.bs-campo {
+  display: block;
+  margin-bottom: 12px;
+
+  &__label {
+    display: block;
+    font-family: var(--fuente-mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 7px;
+  }
+
+  &__error {
+    display: block;
+    font-family: var(--fuente-mono);
+    font-size: 10px;
+    color: var(--danger);
+    margin-top: 6px;
+  }
+}
+
+.bs-input {
+  width: 100%;
+  padding: 13px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 14px;
+  font-family: var(--fuente-ui);
+  outline: none;
+  transition: border-color 0.2s;
+
+  // Sin esto, el selector de fecha y hora nativo se pinta en claro sobre el
+  // fondo oscuro y el texto queda ilegible.
+  color-scheme: dark;
+
+  &:focus {
+    border-color: var(--gold-60);
+  }
+
+  &::placeholder {
+    color: var(--muted);
+  }
+
+  &--area {
+    resize: vertical;
+    min-height: 88px;
+  }
+}
+
+.bs-light .bs-input {
+  background: #fff;
+  color-scheme: light;
+}
+
+// ---------------------------------------------------------------------------
+// Superficies
+// ---------------------------------------------------------------------------
+.bs-tarjeta {
+  background: var(--card);
+  border: 1px solid var(--border);
+  transition: border-color 0.25s;
+
+  &--pulsable:hover {
+    border-color: var(--gold-40);
+  }
+}
+
+// Distintivo de estado de una cita. Los cuatro estados comparten forma y solo
+// cambian de color: así se comparan de un vistazo en una lista larga.
+.bs-estado {
+  display: inline-block;
+  padding: 3px 10px;
+  font-family: var(--fuente-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border: 1px solid;
+
+  &--pendiente {
+    color: var(--warning);
+    border-color: rgba(216, 162, 74, 0.4);
+  }
+  &--confirmada {
+    color: var(--gold);
+    border-color: var(--gold-40);
+  }
+  &--completada {
+    color: var(--success);
+    border-color: rgba(127, 166, 80, 0.4);
+  }
+  &--cancelada {
+    color: var(--danger);
+    border-color: rgba(217, 83, 79, 0.4);
+  }
+}
+
+// Cinta dorada que corre en bucle. Aparece dos veces: bajo la barra de
+// navegación y encima del pie.
+.bs-cinta {
+  background: var(--gold);
+  overflow: hidden;
+  padding: 8px 0;
+  border-top: 1px solid var(--gold);
+  border-bottom: 1px solid #9a7a4a;
+
+  &__pista {
+    display: flex;
+    white-space: nowrap;
+    animation: bs-cinta 22s linear infinite;
+  }
+
+  &__texto {
+    font-family: var(--fuente-ui);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+}
+
+// Se traslada un tercio exacto porque el texto se repite tres veces: al llegar
+// al 33.33% el fotograma coincide con el inicial y el bucle no da tirón.
+@keyframes bs-cinta {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-33.33%);
+  }
+}
+
+@keyframes bs-latido {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+}
+
+.bs-punto-vivo {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+  animation: bs-latido 2s ease-in-out infinite;
+}
+
+// Entrada al hacer scroll. La usa el directiva v-revelar.
+.bs-revelar {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+
+  &.bs-visible {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bs-revelar {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .bs-cinta__pista,
+  .bs-punto-vivo {
+    animation: none;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Quasar
+// ---------------------------------------------------------------------------
+//
+// Los paneles de gestión sí usan componentes de Quasar (tablas, diálogos,
+// campos). Aquí se los alinea con el sistema en lugar de reescribirlos: se
+// quitan los redondeos y se reemplazan sus colores por los tokens.
+.q-dark,
+body.body--dark {
+  --q-dark: var(--card);
+  --q-dark-page: var(--ink);
+}
+
+.q-card,
+.q-menu,
+.q-dialog__inner > div,
+.q-table__container {
+  border-radius: 0 !important;
+  background: var(--card) !important;
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: none !important;
+}
+
+.q-btn {
+  border-radius: 0 !important;
+  font-family: var(--fuente-ui);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.q-field--outlined .q-field__control {
+  border-radius: 0 !important;
+}
+
+.q-table {
+  background: transparent;
+
+  thead th {
+    font-family: var(--fuente-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody td {
+    border-bottom: 1px solid var(--border);
+    font-family: var(--fuente-ui);
+    color: var(--text);
+  }
+
+  tbody tr:hover > td {
+    background: rgba(200, 169, 110, 0.04);
+  }
+}
+
+.q-toolbar {
+  background: var(--ink);
+  border-bottom: 1px solid var(--border);
+}
+
+.q-drawer {
+  background: var(--surface) !important;
+  border-right: 1px solid var(--border);
+}
+
+// ---------------------------------------------------------------------------
+// Paneles de gestión
+// ---------------------------------------------------------------------------
+//
+// Las pantallas de administración están construidas con componentes de Quasar,
+// que traen su propia estructura interna (un q-btn no es un <button> pelado).
+// Por eso no reutilizan las clases .bs-btn / .bs-input de la parte pública: eso
+// pelearía con los estilos del componente. Estas clases hacen de puente,
+// aplicando los mismos tokens sobre el marcado que genera Quasar.
+
+.panel-pagina {
+  background: transparent;
+  color: var(--text);
+}
+
+.panel-titulo {
+  font-family: var(--fuente-display);
+  font-size: clamp(30px, 3.6vw, 46px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin: 0;
+}
+
+.panel-titulo-menor {
+  font-family: var(--fuente-display);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.panel-tarjeta {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.panel-cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 2px;
+}
+
+.panel-caja-cifra {
+  padding: 20px 22px;
+}
+
+.panel-cifra {
+  font-family: var(--fuente-display);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+// --- Botones de Quasar ---
+//
+// El selector va con :deep porque estas clases se aplican desde componentes con
+// estilos scoped; sin él, el compilador les añade el atributo del componente y
+// no llegan al marcado interno del q-btn.
+.panel-boton.q-btn {
+  background: var(--gold);
+  color: var(--ink);
+  font-family: var(--fuente-ui);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 0;
+  box-shadow: none;
+
+  .q-btn__content {
+    color: var(--ink);
+  }
+
+  &:hover {
+    background: var(--gold-soft);
+  }
+}
+
+.panel-boton--fantasma.q-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+
+  .q-btn__content {
+    color: var(--muted);
+  }
+
+  &:hover {
+    border-color: var(--gold-60);
+    background: transparent;
+
+    .q-btn__content {
+      color: var(--gold);
+    }
+  }
+}
+
+// --- Campos de Quasar ---
+.panel-campo {
+  .q-field__control {
+    background: var(--surface);
+    border-radius: 0;
+    color: var(--text);
+  }
+
+  .q-field__native,
+  .q-field__input {
+    color: var(--text);
+    font-family: var(--fuente-ui);
+  }
+
+  .q-field__label {
+    font-family: var(--fuente-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  // Quasar dibuja el borde del campo con pseudoelementos: :before es el estado
+  // en reposo y :after el subrayado de foco.
+  .q-field__control:before {
+    border-color: var(--border);
+  }
+  .q-field__control:after {
+    border-color: var(--gold);
+  }
+}
+
+.panel-tabla {
+  background: transparent;
+  border-radius: 0;
+
+  .q-table__top,
+  .q-table__bottom {
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--fuente-mono);
+    font-size: 11px;
+  }
+}
+
+.panel-dialogo {
+  .q-card,
+  .q-dialog__inner > div {
+    background: var(--card) !important;
+    border: 1px solid var(--border);
+    border-radius: 0;
+  }
+}

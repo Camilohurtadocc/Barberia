@@ -1,0 +1,28 @@
+apply plugin: 'org.springframework.boot'
+
+dependencies {
+    implementation project(':model')
+    implementation project(':usecase')
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    // Explicito aunque el modulo ':model' ya lo expone con 'api': este modulo usa
+    // JpaRepository directamente, asi que no debe depender de la transitividad.
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    runtimeOnly('org.springframework.boot:spring-boot-devtools')
+    testImplementation 'com.tngtech.archunit:archunit:1.4.1'
+    implementation 'org.postgresql:postgresql:42.7.4'
+    testImplementation 'tools.jackson.core:jackson-databind'
+}
+
+tasks.register('explodedJar', Copy) {
+    with jar
+    into layout.buildDirectory.dir("exploded")
+}
+
+jar {
+    enabled = false
+}
+
+bootJar {
+    archiveFileName = "${project.getParent().getName()}.${archiveExtension.get()}"
+}
