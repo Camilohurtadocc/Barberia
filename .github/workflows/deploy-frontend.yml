@@ -5,9 +5,17 @@ on:
     branches: [ master ]
     paths:
       - 'barberia-frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+  # Permite lanzar el despliegue a mano desde la pestaña Actions sin
+  # tener que inventar un commit en barberia-frontend/.
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -16,25 +24,41 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # barberia-frontend/package.json declara engines ">= 26 || ^24 || ^22.12".
+      # Con Node 20 el install/build revienta (Vite 8 + @quasar/app-vite 3);
+      # los intentos anteriores de "forzar Node 20" iban en la direccion
+      # contraria. 24 es la misma linea que se usa en local.
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: barberia-frontend/package-lock.json
 
       - name: Install dependencies
         working-directory: barberia-frontend
-        run: |
-          npm install
-          npm install -g @quasar/cli
+        run: npm ci
 
       - name: Build project
         working-directory: barberia-frontend
         run: npm run build
+
+      # Red de seguridad: si publicPath no quedo aplicado, el bundle pediria
+      # rutas mal resueltas y la pagina saldria en blanco en produccion.
+      # Mejor que falle aqui, con un mensaje claro, que en el navegador.
+      - name: Verify build is GitHub Pages ready
+        working-directory: barberia-frontend
+        run: |
+          grep -q '"/Barberia/assets/' dist/spa/index.html \
+            || { echo "::error::index.html no apunta a /Barberia/assets/ - revisa build.publicPath en quasar.config.js"; exit 1; }
+          echo "OK: build generado con publicPath=/Barberia/"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./barberia-frontend/dist/spa
+          # gh-pages arrastraba una copia entera del codigo fuente
+          # (barberia-frontend/, ~10.500 ficheros) de un push manual antiguo.
+          # force_orphan deja la rama con EXACTAMENTE el contenido de dist/spa.
+          force_orphan: true

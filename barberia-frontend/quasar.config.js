@@ -40,10 +40,24 @@ export default defineConfig((/* ctx */) => {
       // https://v2.quasar.dev/quasar-cli-vite/page-routing-with-vue-router#filename-based-routing
       // filenameBasedRouting: true,
 
-      vueRouterMode: 'hash' // available values: 'hash', 'history'
+      vueRouterMode: 'hash', // available values: 'hash', 'history'
       // vueRouterBase,
 
-      // publicPath: '/',
+      /*
+       * GitHub Pages sirve el sitio bajo el subdirectorio del repo
+       * (https://camilohurtadocc.github.io/Barberia/), NO en la raíz del
+       * dominio. publicPath se convierte en el `base` de Vite y queda HORNEADO
+       * dentro de los propios bundles: la tabla __vite__mapDeps de los chunks
+       * dinámicos y las URLs de fuentes/imágenes se resuelven con él.
+       *
+       * Por eso editar index.html a mano NO arregla nada: los 404 de
+       * runtime-core, use-dark, etc. los pide el JS, no el HTML.
+       *
+       * Debe llevar barra inicial y final. Si algún día el repo cambia de
+       * nombre o se usa dominio propio, este valor se cambia aquí y se
+       * reconstruye — nunca se parchea el dist.
+       */
+      publicPath: '/Barberia/',
       // define: {},
       // defineEnv: {}
       // ignorePublicFolder: true,
