@@ -17,17 +17,19 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Setup Node.js
-         uses: actions/setup-node@v3
-          with:
-           node-version: '20'
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
 
       - name: Install dependencies
-        run: npm ci
-        working-directory: ./barberia-frontend
+        run: |
+          cd barberia-frontend
+          npm install
 
       - name: Build project
-        run: npm run build
-        working-directory: ./barberia-frontend
+        run: |
+          cd barberia-frontend
+          npm run build
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
