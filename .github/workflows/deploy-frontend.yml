@@ -14,22 +14,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Use Node.js 20
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: barberia-frontend/package-lock.json
 
       - name: Install dependencies
+        working-directory: barberia-frontend
         run: |
-          cd barberia-frontend
-          npm install --legacy-peer-deps
+          npm install
+          npm install -g @quasar/cli
 
       - name: Build project
-        run: |
-          cd barberia-frontend
-          npm run build
+        working-directory: barberia-frontend
+        run: npm run build
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
