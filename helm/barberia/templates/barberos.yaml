@@ -1,8 +1,0 @@
-{{- if .Values.servicios.barberos.enabled }}
-{{- include "barberia.componente" (dict
-      "nombre" "servicio-barberos"
-      "etiqueta" "barberos"
-      "cfg" .Values.servicios.barberos
-      "replicas" .Values.replicaCount
-      "tag" .Values.imageTag) }}
-{{- end }}
