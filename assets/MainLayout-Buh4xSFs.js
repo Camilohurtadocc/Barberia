@@ -1,0 +1,1 @@
+import{A as e,N as t,m as n,u as r}from"./runtime-core.esm-bundler-DpqVwp8F.js";import{bt as i}from"./index-rBgPxftT.js";var a={class:`capa-publica`},o=i(Object.assign({name:`MainLayout`},{__name:`MainLayout`,setup(i){return(i,o)=>{let s=t(`RouterView`);return e(),r(`div`,a,[n(s)])}}}),[[`__scopeId`,`data-v-3f153a45`]]);export{o as default};

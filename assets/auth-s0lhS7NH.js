@@ -1,0 +1,1 @@
+import{B as e,ct as t,yt as n}from"./index-rBgPxftT.js";var r=n(({router:n,store:r})=>{let i=e(r);i.verificarToken(),t(()=>{i.logout(),n.currentRoute.value.path.startsWith(`/admin`)&&n.replace({path:`/`,query:{sesion:`expirada`}})})});export{r as default};
